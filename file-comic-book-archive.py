@@ -241,41 +241,69 @@ def save_image(procedure, run_mode, image, file, options, metadata, config, data
 
     def store_layer(image, drawable, path):
         tmp = os.path.join(tempdir, 'tmp.jpeg')
-        pdb_proc = Gimp.get_pdb().lookup_procedure('file-jpeg-save')
-        pdb_config = pdb_proc.create_config()
-        pdb_config.set_property('run-mode', Gimp.RunMode.NONINTERACTIVE)
-        pdb_config.set_property('image', image)
-        pdb_config.set_property('num-drawables', 1)
-        pdb_config.set_property('drawables', Gimp.ObjectArray.new(Gimp.Drawable, [drawable], False))
-        pdb_config.set_property('file', Gio.File.new_for_path(tmp))
-        pdb_proc.run(pdb_config)
-        if (os.path.exists(tmp)):
-            if (isinstance(cbaffFile, zipfile.ZipFile)):
+
+        # Create a temporary image with the same dimensions and base type
+        temp_image = Gimp.Image.new(
+            image.get_width(),
+            image.get_height(),
+            image.get_base_type()
+        )
+
+        # Copy the individual drawable into the temporary image
+        temp_layer = Gimp.Layer.new_from_drawable(drawable, temp_image)
+
+        # Preserve the layer's original position
+        _, offset_x, offset_y = drawable.get_offsets()
+        temp_layer.set_offsets(offset_x, offset_y)
+
+        # Insert the copied layer
+        temp_image.insert_layer(temp_layer, None, 0)
+
+        # Export the temporary image as JPEG
+        success = Gimp.file_save(
+            Gimp.RunMode.NONINTERACTIVE,
+            temp_image,
+            Gio.File.new_for_path(tmp)
+        )
+
+        if success and os.path.exists(tmp):
+            if isinstance(cbaffFile, zipfile.ZipFile):
                 cbaffFile.write(tmp, path)
-            elif (isinstance(cbaffFile, tarfile.TarFile)):
+            elif isinstance(cbaffFile, tarfile.TarFile):
                 cbaffFile.add(tmp, path)
+
             os.remove(tmp)
         else:
-            print("Error removing ", tmp)
+            print("Error exporting layer:", path)
 
-    layers = image.list_layers()
-    print(layers)
+        # Close the temporary image
+        temp_image.delete()
+        # Get all layers from the original image
+    layers = image.get_layers()
+
+    # Export each layer as an individual comic book page
     for page in layers:
         layer_name = page.get_name()
-        page = image.merge_visible_layers(Gimp.MergeType.CLIP_TO_IMAGE)
+        print("Exporting layer:", layer_name)
         store_layer(image, page, layer_name)
 
+    # Close the archive
     cbaffFile.close()
+
+    # Replace the temporary archive with the final file
+    os.replace(
+        file.peek_path() + '.tmpsave',
+        file.peek_path()
+    )
+
+    # Remove the temporary directory
     os.rmdir(tempdir)
-    if os.path.exists(file.peek_path()):
-        os.remove(file.peek_path())
-    os.rename(file.peek_path() + '.tmpsave', file.peek_path())
 
-    Gimp.progress_end()
-
-    return Gimp.ValueArray.new_from_values([
-        GObject.Value(Gimp.PDBStatusType, Gimp.PDBStatusType.SUCCESS)
-    ])
+    # Return success to GIMP
+    return procedure.new_return_values(
+        Gimp.PDBStatusType.SUCCESS,
+        GLib.Error()
+    )
 class FileComicBookArchive(Gimp.PlugIn):
     ## Parameters ##
     __gproperties__ = {

@@ -185,22 +185,19 @@ def load_image(procedure, run_mode, file, metadata, flags, config, data, compres
     ]), flags
 
 #Wrapper function that passes the Zipfile object to save_image()
-def save_cbz(procedure, run_mode, image, n_drawables, drawables, file, metadata, config, data):
+def save_cbz(procedure, run_mode, image, file, options, metadata, config, data):
     Gimp.progress_init("Exporting Comic Book Archive (cbz) image")
     tempdir = tempfile.mkdtemp('gimp-plugin-file-cbz')
     cbaffFile = zipfile.ZipFile(file.peek_path() + '.tmpsave', 'w', compression=zipfile.ZIP_STORED)
-    return save_image(procedure, run_mode, image, n_drawables, drawables, file, metadata, config, data, tempdir, cbaffFile)
-
+    return save_image(procedure, run_mode, image, file, options, metadata, config, data, tempdir, cbaffFile)
 #Wrapper function that passes the Tarfile object to save_image()
-def save_cbt(procedure, run_mode, image, n_drawables, drawables, file, metadata, config, data):
+def save_cbt(procedure, run_mode, image, file, options, metadata, config, data):
     Gimp.progress_init("Exporting Comic Book Archive (cbt) image")
     tempdir = tempfile.mkdtemp('gimp-plugin-file-cbt')
     cbaffFile = tarfile.open(file.peek_path() + '.tmpsave', 'w')
-    return save_image(procedure, run_mode, image, n_drawables, drawables, file, metadata, config, data, tempdir, cbaffFile)
-
+    return save_image(procedure, run_mode, image, file, options, metadata, config, data, tempdir, cbaffFile)
 #Function that actually saves the Comic Book Archive file
-def save_image(procedure, run_mode, image, n_drawables, drawables, file, metadata, config, data, tempdir, cbaffFile):
-    #GUI code
+def save_image(procedure, run_mode, image, file, options, metadata, config, data, tempdir, cbaffFile):    #GUI code
     if run_mode == Gimp.RunMode.INTERACTIVE:
         GimpUi.init('python-fu-file-cbz-save')
 
@@ -364,7 +361,7 @@ class FileComicBookArchive(Gimp.PlugIn):
             procedure.set_extensions("cbt");
             #procedure.set_thumbnail_loader('file-cbz-thumb');
         elif name == 'file-cbz-save':
-            procedure = Gimp.SaveProcedure.new(self, name,
+            procedure = Gimp.ExportProcedure.new(self, name,
                                                Gimp.PDBProcType.PLUGIN,
                                                False, save_cbz, None)
             procedure.set_image_types("*");
@@ -375,17 +372,24 @@ class FileComicBookArchive(Gimp.PlugIn):
             procedure.set_extensions("cbz");
 
             #Adding parameters for GUI
-            procedure.add_argument_from_property(self, "save-metadata")
-            procedure.add_argument_from_property(self, "title")
-            procedure.add_argument_from_property(self, "series")
-            procedure.add_argument_from_property(self, "genre")
-            procedure.add_argument_from_property(self, "pagecount")
-            procedure.add_argument_from_property(self, "year")
-            procedure.add_argument_from_property(self, "month")
-            procedure.add_argument_from_property(self, "day")
-            procedure.add_argument_from_property(self, "tags")
+            procedure.add_boolean_argument(
+                "save-metadata",
+                "Save metadata",
+                "Save metadata in ComicInfo format",
+                False,
+                GObject.ParamFlags.READWRITE
+            )
+
+            procedure.add_string_argument("title", "Title", "Book Title", "", GObject.ParamFlags.READWRITE)
+            procedure.add_string_argument("series", "Series", "Series Title", "", GObject.ParamFlags.READWRITE)
+            procedure.add_string_argument("genre", "Genre", "Book Genre", "", GObject.ParamFlags.READWRITE)
+            procedure.add_string_argument("pagecount", "PageCount", "Number of Pages", "", GObject.ParamFlags.READWRITE)
+            procedure.add_string_argument("year", "Year", "Book Year", "", GObject.ParamFlags.READWRITE)
+            procedure.add_string_argument("month", "Month", "Book Month", "", GObject.ParamFlags.READWRITE)
+            procedure.add_string_argument("day", "Day", "Book Day", "", GObject.ParamFlags.READWRITE)
+            procedure.add_string_argument("tags", "Tags", "Book Tags", "", GObject.ParamFlags.READWRITE)
         elif name == 'file-cbt-save':
-            procedure = Gimp.SaveProcedure.new(self, name,
+            procedure = Gimp.ExportProcedure.new(self, name,
                                                Gimp.PDBProcType.PLUGIN,
                                                False, save_cbt, None)
             procedure.set_image_types("*");
@@ -396,15 +400,22 @@ class FileComicBookArchive(Gimp.PlugIn):
             procedure.set_extensions("cbt");
 
             #Adding parameters for GUI
-            procedure.add_argument_from_property(self, "save-metadata")
-            procedure.add_argument_from_property(self, "title")
-            procedure.add_argument_from_property(self, "series")
-            procedure.add_argument_from_property(self, "genre")
-            procedure.add_argument_from_property(self, "pagecount")
-            procedure.add_argument_from_property(self, "year")
-            procedure.add_argument_from_property(self, "month")
-            procedure.add_argument_from_property(self, "day")
-            procedure.add_argument_from_property(self, "tags")
+            procedure.add_boolean_argument(
+            "save-metadata",
+            "Save metadata",
+            "Save metadata in ComicInfo format",
+            False,
+            GObject.ParamFlags.READWRITE
+        )
+
+            procedure.add_string_argument("title", "Title", "Book Title", "", GObject.ParamFlags.READWRITE)
+            procedure.add_string_argument("series", "Series", "Series Title", "", GObject.ParamFlags.READWRITE)
+            procedure.add_string_argument("genre", "Genre", "Book Genre", "", GObject.ParamFlags.READWRITE)
+            procedure.add_string_argument("pagecount", "PageCount", "Number of Pages", "", GObject.ParamFlags.READWRITE)
+            procedure.add_string_argument("year", "Year", "Book Year", "", GObject.ParamFlags.READWRITE)
+            procedure.add_string_argument("month", "Month", "Book Month", "", GObject.ParamFlags.READWRITE)
+            procedure.add_string_argument("day", "Day", "Book Day", "", GObject.ParamFlags.READWRITE)
+            procedure.add_string_argument("tags", "Tags", "Book Tags", "", GObject.ParamFlags.READWRITE)
         elif name == 'file-cbz-thumb':
             procedure = Gimp.ThumbnailProcedure.new(self, name,
                                                     Gimp.PDBProcType.PLUGIN,

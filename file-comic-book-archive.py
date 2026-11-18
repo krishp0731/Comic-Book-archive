@@ -209,6 +209,16 @@ def save_image(procedure, run_mode, image, file, options, metadata, config, data
             return procedure.new_return_values(Gimp.PDBStatusType.CANCEL, GLib.Error())
         else:
             dialog.destroy()
+        format_id = config.get_choice_id("format")
+        format_options = {
+            0: ".jpg",
+            1: ".png",
+            2: ".tiff",
+            3: ".gif",
+            4: ".bmp",
+        }
+
+    file_extension = format_options.get(format_id, ".jpg")
 
         # Save metadata only if the checkbox is checked
     if config.get_property('save-metadata'):
@@ -240,7 +250,8 @@ def save_image(procedure, run_mode, image, file, options, metadata, config, data
             cbaffFile.addfile(tarinfo, io.BytesIO(xml))
 
     def store_layer(image, drawable, path):
-        tmp = os.path.join(tempdir, 'tmp.jpeg')
+        tmp = os.path.join(tempdir, 'tmp' + file_extension)
+        archive_path = os.path.splitext(path)[0] + file_extension
 
         # Create a temporary image with the same dimensions and base type
         temp_image = Gimp.Image.new(
@@ -268,9 +279,9 @@ def save_image(procedure, run_mode, image, file, options, metadata, config, data
 
         if success and os.path.exists(tmp):
             if isinstance(cbaffFile, zipfile.ZipFile):
-                cbaffFile.write(tmp, path)
+                cbaffFile.write(tmp, archive_path)
             elif isinstance(cbaffFile, tarfile.TarFile):
-                cbaffFile.add(tmp, path)
+                cbaffFile.add(tmp, archive_path)
 
             os.remove(tmp)
         else:
@@ -284,7 +295,6 @@ def save_image(procedure, run_mode, image, file, options, metadata, config, data
     # Export each layer as an individual comic book page
     for page in layers:
         layer_name = page.get_name()
-        print("Exporting layer:", layer_name)
         store_layer(image, page, layer_name)
 
     # Close the archive
@@ -416,6 +426,21 @@ class FileComicBookArchive(Gimp.PlugIn):
             procedure.add_string_argument("month", "Month", "Book Month", "", GObject.ParamFlags.READWRITE)
             procedure.add_string_argument("day", "Day", "Book Day", "", GObject.ParamFlags.READWRITE)
             procedure.add_string_argument("tags", "Tags", "Book Tags", "", GObject.ParamFlags.READWRITE)
+            format_choice = Gimp.Choice.new()
+            format_choice.add("jpeg", 0, "JPEG", "Export pages as JPEG images")
+            format_choice.add("png", 1, "PNG", "Export pages as PNG images")
+            format_choice.add("tiff", 2, "TIFF", "Export pages as TIFF images")
+            format_choice.add("gif", 3, "GIF", "Export pages as GIF images")
+            format_choice.add("bmp", 4, "BMP", "Export pages as BMP images")
+
+            procedure.add_choice_argument(
+                "format",
+                "Page format",
+                "Choose the image format for comic book pages",
+                format_choice,
+                "jpeg",
+                GObject.ParamFlags.READWRITE
+            )
         elif name == 'file-cbt-save':
             procedure = Gimp.ExportProcedure.new(self, name,
                                                Gimp.PDBProcType.PLUGIN,
@@ -444,6 +469,21 @@ class FileComicBookArchive(Gimp.PlugIn):
             procedure.add_string_argument("month", "Month", "Book Month", "", GObject.ParamFlags.READWRITE)
             procedure.add_string_argument("day", "Day", "Book Day", "", GObject.ParamFlags.READWRITE)
             procedure.add_string_argument("tags", "Tags", "Book Tags", "", GObject.ParamFlags.READWRITE)
+            format_choice = Gimp.Choice.new()
+            format_choice.add("jpeg", 0, "JPEG", "Export pages as JPEG images")
+            format_choice.add("png", 1, "PNG", "Export pages as PNG images")
+            format_choice.add("tiff", 2, "TIFF", "Export pages as TIFF images")
+            format_choice.add("gif", 3, "GIF", "Export pages as GIF images")
+            format_choice.add("bmp", 4, "BMP", "Export pages as BMP images")
+
+            procedure.add_choice_argument(
+                "format",
+                "Page format",
+                "Choose the image format for comic book pages",
+                format_choice,
+                "jpeg",
+                GObject.ParamFlags.READWRITE
+            )
         elif name == 'file-cbz-thumb':
             procedure = Gimp.ThumbnailProcedure.new(self, name,
                                                     Gimp.PDBProcType.PLUGIN,

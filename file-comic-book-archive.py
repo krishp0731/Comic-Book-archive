@@ -179,6 +179,12 @@ def load_image(procedure, run_mode, file, metadata, flags, config, data, compres
             os.remove(tmp)
             continue
 
+        if (layer.get_width() <= 0 or layer.get_width() > Gimp.MAX_IMAGE_SIZE or
+            layer.get_height() <= 0 or layer.get_height() > Gimp.MAX_IMAGE_SIZE):
+            print(f"Image dimensions too large: {file}")
+            os.remove(tmp)
+            continue
+
         # Get the layer dimensions
         w = max(w, layer.get_width())
         h = max(h, layer.get_height())

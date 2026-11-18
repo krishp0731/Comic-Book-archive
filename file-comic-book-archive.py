@@ -3,7 +3,6 @@ import io
 
 # GIMP Plug-in for the Comic Book Archive File Format
 
-# Copyright (C) 2024 by YOU <YOU@YOU.COM>
 
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -32,34 +31,24 @@ def thumbnail_cbz(procedure, file, thumb_size, args, data):
     filename = ''
 
     for file_info in file_info_list:
-        if file_info.filename.endswith('jpg' or 'jpeg' or 'png' or 'tiff' or 'gif'):
+        if file_info.filename.lower().endswith(('.jpg', '.jpeg', '.png', '.tiff', '.gif', '.bmp')):
             filename = file_info.filename
             break
 
-    if isinstance(compression, zipfile.ZipFile):
-        extension = os.path.splitext(file)[1].lower()
-        tmp = os.path.join(tempdir, 'tmp' + extension)
+    if not filename:
+        print("No supported images found in archive")
+        return None
+
+    tmp = os.path.join(tempdir, 'tmp-' + os.path.basename(filename))
     with open(tmp, 'wb') as fid:
         fid.write(cbaffFile.read(filename))
 
     thumb_file = Gio.file_new_for_path(tmp)
-    pdb_proc = None
-    if filename.endswith('jpg' or 'jpeg'):
-        pdb_proc = Gimp.get_pdb().lookup_procedure('file-jpeg-load')
-    elif filename.endswith('png'):
-        pdb_proc = Gimp.get_pdb().lookup_procedure('file-png-load')
-    elif filename.endswith('tiff'):
-        pdb_proc = Gimp.get_pdb().lookup_procedure('file-tiff-load')
-    elif filename.endswith('gif'):
-        pdb_proc = Gimp.get_pdb().lookup_procedure('file-gif-load')
-    pdb_config = pdb_proc.create_config()
-    pdb_config.set_property('run-mode', Gimp.RunMode.NONINTERACTIVE)
-    pdb_config.set_property('file', thumb_file)
-    result = pdb_proc.run(pdb_config)
+    img = Gimp.file_load(Gimp.RunMode.NONINTERACTIVE, thumb_file)
     os.remove(tmp)
     os.rmdir(tempdir)
+    
 
-    img = result.index(1)
 
     return Gimp.ValueArray.new_from_values([
         GObject.Value(Gimp.PDBStatusType, Gimp.PDBStatusType.SUCCESS),
@@ -122,7 +111,7 @@ def load_image(procedure, run_mode, file, metadata, flags, config, data, compres
         #TODO: What if it's not a JPEG? Can we make this more flexible?
 
         if (isinstance(compression, zipfile.ZipFile)):
-            tmp = os.path.join(tempdir, 'tmp.jpeg')
+            tmp = os.path.join(tempdir, 'tmp-' + os.path.basename(file))
             with open(tmp, 'wb') as fid:
                 fid.write(compression.read(file))
         elif (isinstance(compression, tarfile.TarFile)):
@@ -209,14 +198,14 @@ def save_image(procedure, run_mode, image, file, options, metadata, config, data
             return procedure.new_return_values(Gimp.PDBStatusType.CANCEL, GLib.Error())
         else:
             dialog.destroy()
-        format_id = config.get_choice_id("format")
-        format_options = {
-            0: ".jpg",
-            1: ".png",
-            2: ".tiff",
-            3: ".gif",
-            4: ".bmp",
-        }
+    format_id = config.get_choice_id("format")
+    format_options = {
+        0: ".jpg",
+        1: ".png",
+        2: ".tiff",
+        3: ".gif",
+        4: ".bmp",
+    }
 
     file_extension = format_options.get(format_id, ".jpg")
 
@@ -492,9 +481,9 @@ class FileComicBookArchive(Gimp.PlugIn):
                                         'loads a thumbnail from a Comic Book Archive (.cbz) file',
                                         name)
 
-            procedure.set_attribution('<YOU>',  # author
-                                      '<YOU>',  # copyright
-                                      '2024')  # year
+            procedure.set_attribution('<Krish Patel>',  # author
+                                      '<Krish Patel>',  # copyright
+                                      '2026')  # year
 
         return procedure
 

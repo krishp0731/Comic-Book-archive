@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+from fileinput import filename
 import io
 
 # GIMP Plug-in for the Comic Book Archive File Format
@@ -25,7 +26,11 @@ import os, sys, tarfile, tempfile, zipfile
 import xml.etree.ElementTree as ET
 def thumbnail_cbz(procedure, file, thumb_size, args, data):
     tempdir = tempfile.mkdtemp('gimp-plugin-comic-book-archive')
-    cbaffFile = zipfile.ZipFile(file.peek_path())
+    try:
+        cbaffFile = zipfile.ZipFile(file.peek_path())
+    except (OSError, zipfile.BadZipFile) as error:
+        print(f"Could not open CBZ thumbnail archive: {error}")
+        return None
 
     file_info_list = cbaffFile.infolist()
     filename = ''
@@ -44,7 +49,14 @@ def thumbnail_cbz(procedure, file, thumb_size, args, data):
         fid.write(cbaffFile.read(filename))
 
     thumb_file = Gio.file_new_for_path(tmp)
-    img = Gimp.file_load(Gimp.RunMode.NONINTERACTIVE, thumb_file)
+    try:
+        img = Gimp.file_load(Gimp.RunMode.NONINTERACTIVE, thumb_file)
+    except Exception as error:
+       print(f"Could not load thumbnail image {filename}: {error}")
+       os.remove(tmp)
+       os.rmdir(tempdir)
+       cbaffFile.close()
+       return None
     os.remove(tmp)
     os.rmdir(tempdir)
     
@@ -57,12 +69,26 @@ def thumbnail_cbz(procedure, file, thumb_size, args, data):
 
 #Wrapper function that passes the Zipfile object to load_image()
 def load_cbz(procedure, run_mode, file, metadata, flags, config, data):
-    compression = zipfile.ZipFile(file.peek_path())
+    try:
+        compression = zipfile.ZipFile(file.peek_path())
+    except (OSError, zipfile.BadZipFile) as error:
+        print(f"Could not open CBZ archive: {error}")
+        return procedure.new_return_values(
+            Gimp.PDBStatusType.EXECUTION_ERROR,
+            GLib.Error()
+        )
     return load_image(procedure, run_mode, file, metadata, flags, config, data, compression)
 
 #Wrapper function that passes the Tarfile object to load_image()
 def load_cbt(procedure, run_mode, file, metadata, flags, config, data):
-    compression = tarfile.open(file.peek_path(), 'r')
+    try:
+        compression = tarfile.open(file.peek_path(), 'r')
+    except (OSError, tarfile.TarError) as error:
+        print(f"Could not open CBT archive: {error}")
+        return procedure.new_return_values(
+            Gimp.PDBStatusType.EXECUTION_ERROR,
+            GLib.Error()
+        )
     return load_image(procedure, run_mode, file, metadata, flags, config, data, compression)
 
 #Function that actually loads the Comic Book Archive file
@@ -76,6 +102,12 @@ def load_image(procedure, run_mode, file, metadata, flags, config, data, compres
         file_info_list = compression.infolist()
     elif (isinstance(compression, tarfile.TarFile)):
         file_info_list = compression.getmembers()
+    else:
+        print("Unsupported archive type")
+        return procedure.new_return_values(
+            Gimp.PDBStatusType.EXECUTION_ERROR,
+            GLib.Error()
+        ), flags
     layer_names = []
     
 
@@ -92,7 +124,7 @@ def load_image(procedure, run_mode, file, metadata, flags, config, data, compres
 
         # Check if the end with a valid extension
         # TODO: Verify this actually does filter valid files
-        if filename.endswith(tuple(extensions)):
+        if os.path.splitext(filename)[1].lower().lstrip('.') in extensions:
             # Add the name to a list to use later
             layer_names.append(filename)
         else:
